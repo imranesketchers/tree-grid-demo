@@ -1,0 +1,16 @@
+/* You can add global styles to this file, and also import other style files */
+@import "ej2/material.scss";
+.e-treegrid {
+    .e-row{
+        height: 2em;
+    }
+}
+._gridcontrol{
+    height: 95vh!important;
+}
+.e-gridcontent{
+    height: 90vh!important;
+}
+.e-content{
+    height: 90vh!important;
+}
