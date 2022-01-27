@@ -1,28 +1,34 @@
 <ejs-treegrid #treegrid
-[dataSource]='tasks | async'
-[treeColumnIndex]='1'
-parentIdMapping='parentItem'
-idMapping='taskID'
-hasChildMapping='isParent'
-(dataStateChange)= 'dataStateChange($event)'
-[allowPaging]="true"
+[dataSource]='data'
+hasChildMapping="isParent"
+[treeColumnIndex]="1"
+idMapping="taskID"
+parentIdMapping="parentItem"
+[allowPaging]=true
+allowSorting=true
+loadChildOnDemand='true'
+[filterSettings]='filterSettings'
 [showColumnChooser]='true'
 [toolbar]="toolbar"
 [pageSettings]="pageSettings"
-
-allowSorting='false'
-[contextMenuItems]="contextMenuRowItems"
+[columns]='treegridColumns'
+[columnMenuItems]="headermenuItems"
 [editSettings]='editSettings'
 (contextMenuClick)='rowContextMenuClick($event)'
 (contextMenuOpen)='rowContextMenuOpen($event)'
-[columns]=treegridColumns>
+[contextMenuItems]="contextMenuRowItems"
 >
-
-<!-- height=900
-[enableVirtualization]=true
-class="tree-height"
-childMapping='Crew' -->
 </ejs-treegrid>
+<!--
+
+[allowExcelExport]='true' [allowPdfExport]='true'
+
+(dataStateChange)= 'dataStateChange($event)'
+[sortSettings]='sortSettings'
+(actionComplete)="sort($event)"
+showColumnMenu=true
+
+-->
 
 <div>
   <ejs-contextmenu #headercontextmenu target='.e-gridheader'
@@ -30,5 +36,6 @@ childMapping='Crew' -->
   (select)="columnContextMenuOpen($event)"
   [items]='headermenuItems'></ejs-contextmenu>
 </div>
-<ejs-dialog #edit_dialog [buttons]='alertDlgButtons' [visible]='visible' content='Edit Column Dialog' width='200px' height='110px'>
+<ejs-dialog #edit_dialog [buttons]='alertDlgButtons' [visible]='visible' headerContent='Dialog'>
+  <app-dynamic-form></app-dynamic-form>
 </ejs-dialog>

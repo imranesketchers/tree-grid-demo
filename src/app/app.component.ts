@@ -1,16 +1,19 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
 import {
+  TreeGrid, Page ,
   VirtualScrollService,
   TreeGridComponent,
   DataStateChangeEventArgs,
   ColumnChooserService,
   ToolbarService,
+  ColumnMenuService,
 } from '@syncfusion/ej2-angular-treegrid';
 import {
   ContextMenuService,
   EditService,
   SortService,
   ResizeService,
+  SortEventArgs,
 } from '@syncfusion/ej2-angular-grids';
 import { BeforeOpenCloseEventArgs } from '@syncfusion/ej2-inputs';
 import { MenuEventArgs } from '@syncfusion/ej2-navigations';
@@ -20,6 +23,7 @@ import {
   ButtonPropsModel,
   DialogComponent,
 } from '@syncfusion/ej2-angular-popups';
+import { DataManager, WebApiAdaptor, UrlAdaptor } from '@syncfusion/ej2-data';
 
 @Component({
   selector: 'app-root',
@@ -33,12 +37,19 @@ import {
     ResizeService,
     ColumnChooserService,
     ToolbarService,
+    ColumnMenuService
   ],
 })
 export class AppComponent implements OnInit {
-  public data: Object[] = [{}];
+  // public data: Object[] = [{}];
+
+
+  public data!: DataManager;
+
   public editSettings: object = {};
+  public filterSettings!: Object;
   public pageSettings: Object = {};
+  public sortSettings!: Object;
   public contextMenuItems: any = [];
   public toolbar: string[] = [];
   public selectionType: string = 'Single';
@@ -52,7 +63,7 @@ export class AppComponent implements OnInit {
   public alertDlgButtons: ButtonPropsModel[] = [
     {
       click: this.promptDlgBtnClick.bind(this),
-      buttonModel: { content: 'Edit', isPrimary: true },
+      buttonModel: { content: 'Save', isPrimary: true },
     },
     {
       click: this.promptDlgBtnClick.bind(this),
@@ -72,9 +83,10 @@ export class AppComponent implements OnInit {
     'Edit',
     'Delete',
     'Filter',
+    'PdfExport', 'ExcelExport', 'CsvExport',
   ];
   public treegridColumns: any = [];
-  // ColumnMenuItemModel[]
+
   public headermenuItems = [
     {
       iconCss: 'e-icons e-edit',
@@ -83,7 +95,7 @@ export class AppComponent implements OnInit {
       id: 'edit',
     },
     {
-      iconCss: 'e-icons e-new',
+      iconCss: 'e-icons e-icon-new',
       text: 'New Column',
       target: '.e-headercontent',
       id: 'new',
@@ -95,52 +107,70 @@ export class AppComponent implements OnInit {
       id: 'delete',
     },
     {
-      iconCss: 'e-icons e-edit',
+      iconCss: 'e-icons e-icon-edit',
       text: 'Choose Column',
       target: '.e-headercontent',
       id: 'choose',
     },
     {
-      iconCss: 'e-icons e-delete',
+      iconCss: 'e-icons e-icon-filter',
       text: 'Freeze Column',
       target: '.e-headercontent',
-      id: 'freeze',
+      id: 'column_freeze',
     },
-    { text: 'Filter Column', target: '.e-headercontent', id: 'filter' },
-    { text: 'Multi-Sort', target: '.e-headercontent', id: 'sort' },
+    { iconCss: 'e-icons e-icon-caret',
+      text: 'Filter Column', target: '.e-headercontent', id: 'column_filter' },
+    { iconCss: 'e-icons e-icon-caret',
+     text: 'Multi-Sort', target: '.e-headercontent', id: 'multi_sort' },
+    'Filter',
+    'ColumnChooser',
   ];
 
   @ViewChild('treegrid')
   //@ts-ignore
   public treeGridObj: TreeGridComponent;
 
-  public tasks: Observable<DataStateChangeEventArgs>;
+  // public tasks: Observable<DataStateChangeEventArgs>;
 
   constructor(private TaskService: TaskStoreService) {
-    this.tasks = TaskService;
+    // this.tasks = TaskService;
   }
 
   public dataStateChange(state: DataStateChangeEventArgs): void {
     this.TaskService.execute(state);
   }
 
-  ngOnInit(): void {
-    // dataSource();
+  async ngOnInit(): Promise<void> {
+    this.data = new DataManager({
+      url: "https://236c-110-36-226-234.ngrok.io/api/tasks",
+      // url: "https://ej2services.syncfusion.com/production/web-services/api/SelfReferenceData",
+      updateUrl: "https://236c-110-36-226-234.ngrok.io/api/update",
+      insertUrl: "Home/Insert",
+      removeUrl: "Home/Delete",
+      batchUrl: "Home/Remove",
+      adaptor: new WebApiAdaptor,
+      // adaptor: new UrlAdaptor,
+      crossDomain: true,
+      // offline: true
+    });
 
-    // this.data = virtualData;
     this.editSettings = {
       allowEditing: true,
       allowAdding: true,
       allowDeleting: true,
-      mode: 'column',
+      mode: 'Row',
       showConfirmDialog: true,
       showDeleteConfirmDialog: true,
     };
-    this.toolbar = ['ColumnChooser'];
+    // this.sortSettings =  { columns: [{ field: 'taskID', direction: 'Ascending'  },
+    //   { field: 'taskName', direction: 'Ascending' }]
+    // }
+    // this.filterSettings = { type: 'Menu'};
+    // this.toolbar = ['ColumnChooser', 'Delete'];
     // this.contextMenuItems = this.contextMenuRowItems;
-    this.pageSettings = { pageSize: 12, pageSizeMode: 'Root' };
-    const state: any = { skip: 0, take: 1 };
-    this.TaskService.getTasksTableConfigurations().subscribe((data: any) => {
+    // this.pageSettings = { pageSize: 12, pageSizeMode: 'Root' };
+    // const state: any = { skip: 0, take: 1 };
+    await this.TaskService.getTasksTableConfigurations().subscribe((data: any) => {
       data.result.map((column: any) => {
         let conf = {
           field: column.field,
@@ -153,7 +183,25 @@ export class AppComponent implements OnInit {
         this.treegridColumns.push(conf);
       });
     });
-    this.TaskService.execute(state);
+    // debugger
+    // this.TaskService.execute(state);
+  }
+
+  public sort (args: SortEventArgs ): void {
+    if (args.requestType === 'sorting') {
+        for (let columns of this.treeGridObj.getColumns()) {
+            for (let sortcolumns of this.treeGridObj.sortSettings.columns!) {
+                if (sortcolumns.field === columns.field) {
+                    // this.check(sortcolumns.field, true); break;
+                } else {
+                    // this.check(columns.field, false);
+                    // this.treegrid.grid.removeSortColumn('units');
+                    // this.treegrid.sortByColumn('orderDate', 'Ascending', true);
+                }
+            }
+        }
+    }
+
   }
 
   contextMenuClick(args?: MenuEventArgs): void {

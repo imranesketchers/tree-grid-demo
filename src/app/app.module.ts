@@ -16,6 +16,9 @@ import { DropDownListAllModule } from '@syncfusion/ej2-angular-dropdowns';
 import { HttpClientModule } from '@angular/common/http';
 import { ContextMenuModule } from '@syncfusion/ej2-angular-navigations';
 import { DialogModule } from '@syncfusion/ej2-angular-popups';
+import { DynamicFormComponent } from './dynamic-form/dynamic-form.component';
+import { ReactiveFormsModule } from '@angular/forms';
+import { FieldControlService } from './services/field-control.service';
 
 /**
  * Module
@@ -23,6 +26,7 @@ import { DialogModule } from '@syncfusion/ej2-angular-popups';
 @NgModule({
   imports: [
     BrowserModule,
+    ReactiveFormsModule,
     TreeGridModule,
     ButtonModule,
     DropDownListAllModule,
@@ -30,7 +34,7 @@ import { DialogModule } from '@syncfusion/ej2-angular-popups';
     ContextMenuModule,
     DialogModule,
   ],
-  declarations: [AppComponent],
+  declarations: [AppComponent, DynamicFormComponent],
   bootstrap: [AppComponent],
   providers: [
     PageService,
@@ -40,6 +44,7 @@ import { DialogModule } from '@syncfusion/ej2-angular-popups';
     ResizeService,
     ContextMenuService,
     ToolbarService,
+    FieldControlService,
   ],
 })
 export class AppModule {}
