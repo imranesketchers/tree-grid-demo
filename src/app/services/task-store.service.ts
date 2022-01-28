@@ -17,11 +17,15 @@ const httpOptions = {
 })
 export class TaskStoreService extends Subject<DataStateChangeEventArgs> {
   private apiUrl = 'http://localhost:3000/api/tasks';
+  // private apiUrl = 'https://531a-2400-adc5-156-ec00-fcdd-8f6c-f3ec-37a1.ngrok.io/api/tasks';
 
   constructor(private http: HttpClient) {
     super();
   }
 
+  public getTasksURL(){
+    return this.apiUrl;
+  }
   public execute(state: any): void {
     if (state.requestType === "expand") {
       state.childDataBind();

@@ -8,8 +8,6 @@ parentIdMapping="parentItem"
 allowSorting=true
 loadChildOnDemand='true'
 [filterSettings]='filterSettings'
-[showColumnChooser]='true'
-[toolbar]="toolbar"
 [pageSettings]="pageSettings"
 [columns]='treegridColumns'
 [columnMenuItems]="headermenuItems"
@@ -22,19 +20,21 @@ loadChildOnDemand='true'
 <!--
 
 [allowExcelExport]='true' [allowPdfExport]='true'
-
+[showColumnChooser]='true'
+[toolbar]="toolbar"
 (dataStateChange)= 'dataStateChange($event)'
 [sortSettings]='sortSettings'
 (actionComplete)="sort($event)"
-showColumnMenu=true
+
 
 -->
 
 <div>
   <ejs-contextmenu #headercontextmenu target='.e-gridheader'
-  (columnMenuOpen)='columnContextMenuOpen($event)'
+  (columnMenuOpen)='columnMenuOpen($event)'
   (select)="columnContextMenuOpen($event)"
-  [items]='headermenuItems'></ejs-contextmenu>
+  [items]='headermenuItems'>
+</ejs-contextmenu>
 </div>
 <ejs-dialog #edit_dialog [buttons]='alertDlgButtons' [visible]='visible' headerContent='Dialog'>
   <app-dynamic-form></app-dynamic-form>

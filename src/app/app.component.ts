@@ -1,12 +1,12 @@
 import { Component, OnInit, ViewChild } from '@angular/core';
 import {
-  TreeGrid, Page ,
   VirtualScrollService,
   TreeGridComponent,
   DataStateChangeEventArgs,
   ColumnChooserService,
   ToolbarService,
   ColumnMenuService,
+  FilterService,
 } from '@syncfusion/ej2-angular-treegrid';
 import {
   ContextMenuService,
@@ -37,15 +37,16 @@ import { DataManager, WebApiAdaptor, UrlAdaptor } from '@syncfusion/ej2-data';
     ResizeService,
     ColumnChooserService,
     ToolbarService,
-    ColumnMenuService
+    ColumnMenuService,
+    FilterService,
   ],
 })
 export class AppComponent implements OnInit {
   // public data: Object[] = [{}];
 
-
   public data!: DataManager;
 
+  public selectedColumnId: string = '';
   public editSettings: object = {};
   public filterSettings!: Object;
   public pageSettings: Object = {};
@@ -78,52 +79,67 @@ export class AppComponent implements OnInit {
     { text: 'Cut Rows', target: '.e-content', id: 'cut' },
     { text: 'Paste Next', target: '.e-content', id: 'paste-next' },
     { text: 'Paste Child', target: '.e-content', id: 'paste-child' },
+    // { text: 'Paste', target: '.e-content', id: 'paste-row', items:[
+    //   { text: 'Paste Next', id: 'paste-next' },
+    //   { text: 'Paste Child', id: 'paste-child' },
+    // ] },
     'SortAscending',
     'SortDescending',
     'Edit',
     'Delete',
-    'Filter',
-    'PdfExport', 'ExcelExport', 'CsvExport',
   ];
-  public treegridColumns: any = [];
+  public treegridColumns!: any[];
 
   public headermenuItems = [
     {
       iconCss: 'e-icons e-edit',
+      // separator: true,
       text: 'Edit Column',
       target: '.e-headercontent',
-      id: 'edit',
+      id: 'editColumn',
     },
     {
-      iconCss: 'e-icons e-icon-new',
+      iconCss: 'e-icons e-edit',
+      // separator: true,
       text: 'New Column',
       target: '.e-headercontent',
-      id: 'new',
+      id: 'newColumn',
     },
     {
-      iconCss: 'e-icons e-delete',
+      iconCss: 'e-icons e-remove',
+      // separator: true,
       text: 'Delete Column',
       target: '.e-headercontent',
-      id: 'delete',
+      id: 'deleteColumn',
     },
     {
-      iconCss: 'e-icons e-icon-edit',
+      iconCss: 'e-icons e-filter',
+      // separator: true,
       text: 'Choose Column',
       target: '.e-headercontent',
-      id: 'choose',
+      id: 'chooseColumn',
     },
     {
-      iconCss: 'e-icons e-icon-filter',
+      iconCss: 'e-icons e-edit',
+      // separator: true,
       text: 'Freeze Column',
       target: '.e-headercontent',
-      id: 'column_freeze',
+      id: 'freezeColumn',
     },
-    { iconCss: 'e-icons e-icon-caret',
-      text: 'Filter Column', target: '.e-headercontent', id: 'column_filter' },
-    { iconCss: 'e-icons e-icon-caret',
-     text: 'Multi-Sort', target: '.e-headercontent', id: 'multi_sort' },
-    'Filter',
-    'ColumnChooser',
+    {
+      iconCss: 'e-icons e-filter',
+      // separator: true,
+      text: 'Filter Column',
+      target: '.e-headercontent',
+      id: 'filterColumn',
+    },
+    {
+      iconCss: 'e-icons e-filter',
+      // separator: true,
+      text: 'Multi-Sort',
+      target: '.e-headercontent',
+      id: 'multiSortColumn',
+    },
   ];
 
   @ViewChild('treegrid')
@@ -134,6 +150,18 @@ export class AppComponent implements OnInit {
 
   constructor(private TaskService: TaskStoreService) {
     // this.tasks = TaskService;
+    this.TaskService.getTasksTableConfigurations().subscribe((data: any) => {
+      this.treegridColumns = data.result.map((column: any) => {
+        return {
+          field: column.field,
+          isPrimaryKey: column.is_primary,
+          headerText: column.name,
+          width: column.width,
+          type: column.type,
+          displayAsCheckBox: column.type === 'Boolean',
+        };
+      });
+    });
   }
 
   public dataStateChange(state: DataStateChangeEventArgs): void {
@@ -142,13 +170,10 @@ export class AppComponent implements OnInit {
 
   async ngOnInit(): Promise<void> {
     this.data = new DataManager({
-      url: "https://236c-110-36-226-234.ngrok.io/api/tasks",
+      url: this.TaskService.getTasksURL(),
       // url: "https://ej2services.syncfusion.com/production/web-services/api/SelfReferenceData",
-      updateUrl: "https://236c-110-36-226-234.ngrok.io/api/update",
-      insertUrl: "Home/Insert",
-      removeUrl: "Home/Delete",
-      batchUrl: "Home/Remove",
-      adaptor: new WebApiAdaptor,
+      batchUrl: 'Home/Remove',
+      adaptor: new WebApiAdaptor({requestType: 'JSON'}),
       // adaptor: new UrlAdaptor,
       crossDomain: true,
       // offline: true
@@ -162,6 +187,7 @@ export class AppComponent implements OnInit {
       showConfirmDialog: true,
       showDeleteConfirmDialog: true,
     };
+    this.filterSettings = { type: 'FilterBar', hierarchyMode: 'Parent', mode: 'Immediate' };
     // this.sortSettings =  { columns: [{ field: 'taskID', direction: 'Ascending'  },
     //   { field: 'taskName', direction: 'Ascending' }]
     // }
@@ -170,38 +196,24 @@ export class AppComponent implements OnInit {
     // this.contextMenuItems = this.contextMenuRowItems;
     // this.pageSettings = { pageSize: 12, pageSizeMode: 'Root' };
     // const state: any = { skip: 0, take: 1 };
-    await this.TaskService.getTasksTableConfigurations().subscribe((data: any) => {
-      data.result.map((column: any) => {
-        let conf = {
-          field: column.field,
-          isPrimaryKey: column.is_primary,
-          headerText: column.name,
-          width: column.width,
-          type: column.type,
-          displayAsCheckBox: column.type === 'Boolean',
-        };
-        this.treegridColumns.push(conf);
-      });
-    });
     // debugger
     // this.TaskService.execute(state);
   }
 
-  public sort (args: SortEventArgs ): void {
+  public sort(args: SortEventArgs): void {
     if (args.requestType === 'sorting') {
-        for (let columns of this.treeGridObj.getColumns()) {
-            for (let sortcolumns of this.treeGridObj.sortSettings.columns!) {
-                if (sortcolumns.field === columns.field) {
-                    // this.check(sortcolumns.field, true); break;
-                } else {
-                    // this.check(columns.field, false);
-                    // this.treegrid.grid.removeSortColumn('units');
-                    // this.treegrid.sortByColumn('orderDate', 'Ascending', true);
-                }
-            }
+      for (let columns of this.treeGridObj.getColumns()) {
+        for (let sortcolumns of this.treeGridObj.sortSettings.columns!) {
+          if (sortcolumns.field === columns.field) {
+            // this.check(sortcolumns.field, true); break;
+          } else {
+            // this.check(columns.field, false);
+            // this.treegrid.grid.removeSortColumn('units');
+            // this.treegrid.sortByColumn('orderDate', 'Ascending', true);
+          }
         }
+      }
     }
-
   }
 
   contextMenuClick(args?: MenuEventArgs): void {
@@ -223,16 +235,42 @@ export class AppComponent implements OnInit {
     console.log('contextMenuOpen', arg);
   }
 
+  columnMenuOpen(arg: any): void {
+    console.log('column Menu Open', arg);
+  }
+
   columnContextMenuOpen(args: any): void {
     console.log('columnContextMenuOpen', args);
     //handle selection of context menu items here
-    if (args.item.properties.id === 'edit') {
+    if (args.item.properties.id === 'newColumn') {
       this.editDialog.show();
+    } else if (args.item.properties.id === 'editColumn') {
+      this.editDialog.show();
+    } else if (args.item.properties.id === 'deleteColumn') {
+      console.log([this.selectedColumnId]);
+      this.treeGridObj.hideColumns([this.selectedColumnId], this.selectedColumnId);
+      console.log(this.treeGridObj.getVisibleColumns());
+    } else if (args.item.properties.id === 'chooseColumn') {
+      this.treeGridObj.openColumnChooser();
+    } else if (args.item.properties.id === 'freezeColumn') {
+      this.treeGridObj.frozenColumns;
+      console.log(this.treeGridObj.getFrozenColumns());
+    } else if (args.item.properties.id === 'filterColumn') {
+      // const visibleColumns = this.treeGridObj.getVisibleColumns().map(column=>{
+      //   return column.field
+      // })
+      // console.log(visibleColumns);
+      this.treeGridObj.allowFiltering = true;
+    } else if (args.item.properties.id === 'multiSortColumn') {
+      this.treeGridObj.allowMultiSorting = false;
     }
   }
 
-  rowContextMenuOpen(arg: BeforeOpenCloseEventArgs): void {
+  rowContextMenuOpen(arg: any): void {
     console.log('rowContextMenuOpen', arg);
+    if (arg.hasOwnProperty('column') && arg.column){
+      this.selectedColumnId = arg.column.field;
+    }
   }
 
   rowContextMenuClick(args: MenuEventArgs): void {
@@ -252,17 +290,32 @@ export class AppComponent implements OnInit {
       this.multiSelectToggle();
     }
     if (args.item.id === 'copy') {
+      this.treeGridObj.copyHierarchyMode = 'Both';
       this.treeGridObj.copy();
     }
-    // if (args.item.id === 'cut') {
-    //   this.treeGridObj.cut();
-    // }
-    // if (args.item.id === 'paste-next') {
-    //   this.treeGridObj.paste('Next');
-    // }
-    // if (args.item.id === 'paste-child') {
-    //   this.treeGridObj.paste('Child');
-    // }
+    if (args.item.id === 'cut') {
+      this.treeGridObj.copy();
+      this.treeGridObj.addRecord();
+    }
+    if (args.item.id === 'paste-next') {
+      const selectedRowNumber = this.treeGridObj.getSelectedRowIndexes();
+      console.log(selectedRowNumber);
+      // this.treeGridObj.paste('Next');
+    }
+    if (args.item.id === 'paste-child') {
+      // const selectedRowNumber = this.treeGridObj.getSelectedRowIndexes();
+      // const selectedRow = this.treeGridObj.getSelectedRecords()
+      // console.log(selectedRowNumber, selectedRow);
+      //@ts-ignore
+      // this.data.insert().then(
+      //   (res: any) =>{
+      //     console.log(res.data)
+      //   }
+        this.treeGridObj.addRecord({ taskID: 'input', taskName: 'email.6', startDate: "Sun Jun 07 1992 05:00:00 GMT+0500 (Pakistan Standard Time)", isParent: true });
+
+      // )
+      // this.treeGridObj.paste('Child');
+    }
   }
 
   multiSelectToggle(): void {
