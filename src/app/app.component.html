@@ -1,26 +1,29 @@
 <ejs-treegrid #treegrid
 [dataSource]='data'
 hasChildMapping="isParent"
+[showColumnChooser]='true'
 [treeColumnIndex]="1"
 idMapping="taskID"
 parentIdMapping="parentItem"
 [allowPaging]=true
 allowSorting=true
+allowReordering=true
+[allowRowDragAndDrop]=true
+[allowResizing]='true'
 loadChildOnDemand='true'
 [filterSettings]='filterSettings'
 [pageSettings]="pageSettings"
 [columns]='treegridColumns'
 [columnMenuItems]="headermenuItems"
 [editSettings]='editSettings'
-(contextMenuClick)='rowContextMenuClick($event)'
-(contextMenuOpen)='rowContextMenuOpen($event)'
-[contextMenuItems]="contextMenuRowItems"
+(contextMenuClick)='contextMenuClick($event)'
+(contextMenuOpen)='contextMenuOpen($event)'
+[contextMenuItems]="contextMenuItems"
 >
 </ejs-treegrid>
 <!--
 
 [allowExcelExport]='true' [allowPdfExport]='true'
-[showColumnChooser]='true'
 [toolbar]="toolbar"
 (dataStateChange)= 'dataStateChange($event)'
 [sortSettings]='sortSettings'
@@ -29,13 +32,13 @@ loadChildOnDemand='true'
 
 -->
 
-<div>
+<!-- <div>
   <ejs-contextmenu #headercontextmenu target='.e-gridheader'
   (columnMenuOpen)='columnMenuOpen($event)'
   (select)="columnContextMenuOpen($event)"
   [items]='headermenuItems'>
 </ejs-contextmenu>
-</div>
+</div> -->
 <ejs-dialog #edit_dialog [buttons]='alertDlgButtons' [visible]='visible' headerContent='Dialog'>
   <app-dynamic-form></app-dynamic-form>
 </ejs-dialog>

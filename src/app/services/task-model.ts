@@ -1,7 +1,7 @@
 export class TaskModel {
-  id?: Number;
   [key : string]: any;
-  TaskName: String | undefined;
+  taskID: Number | undefined;
+  taskName: String | undefined;
   isParent: Boolean | undefined;
-  ParentID: Number | undefined;
+  parentItem: Number | undefined;
 }

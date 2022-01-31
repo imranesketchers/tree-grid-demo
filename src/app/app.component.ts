@@ -1,4 +1,4 @@
-import { Component, OnInit, ViewChild } from '@angular/core';
+import { Component, Inject, OnInit, ViewChild } from '@angular/core';
 import {
   VirtualScrollService,
   TreeGridComponent,
@@ -7,7 +7,13 @@ import {
   ToolbarService,
   ColumnMenuService,
   FilterService,
+  FreezeService,
+  InfiniteScrollService,
+  ReorderService,
+  RowDDService,
 } from '@syncfusion/ej2-angular-treegrid';
+import { addClass, removeClass } from '@syncfusion/ej2-base';
+import { RowDataBoundEventArgs, BeginEditArgs } from '@syncfusion/ej2-grids';
 import {
   ContextMenuService,
   EditService,
@@ -24,6 +30,7 @@ import {
   DialogComponent,
 } from '@syncfusion/ej2-angular-popups';
 import { DataManager, WebApiAdaptor, UrlAdaptor } from '@syncfusion/ej2-data';
+import { TaskModel } from './services/task-model';
 
 @Component({
   selector: 'app-root',
@@ -39,6 +46,11 @@ import { DataManager, WebApiAdaptor, UrlAdaptor } from '@syncfusion/ej2-data';
     ToolbarService,
     ColumnMenuService,
     FilterService,
+    FreezeService,
+    InfiniteScrollService,
+    ReorderService,
+    ResizeService,
+    RowDDService,
   ],
 })
 export class AppComponent implements OnInit {
@@ -47,6 +59,9 @@ export class AppComponent implements OnInit {
   public data!: DataManager;
 
   public selectedColumnId: string = '';
+  public multiSelectColumnSwitch: boolean = false;
+  public freezeColumnSwitch: boolean = false;
+  public filterColumnSwitch: boolean = false;
   public editSettings: object = {};
   public filterSettings!: Object;
   public pageSettings: Object = {};
@@ -54,6 +69,8 @@ export class AppComponent implements OnInit {
   public contextMenuItems: any = [];
   public toolbar: string[] = [];
   public selectionType: string = 'Single';
+  public copiedRecords: TaskModel[] = [];
+  public copiedElements: Element[] = [];
   // dialog box
   @ViewChild('edit_dialog')
   public editDialog!: DialogComponent;
@@ -72,17 +89,31 @@ export class AppComponent implements OnInit {
     },
   ];
   public contextMenuRowItems = [
-    { text: 'Add Next', target: '.e-content', id: 'next' },
-    { text: 'Add Child', target: '.e-content', id: 'child' },
+    // { text: 'Add Next', target: '.e-content', id: 'next' },
+    // { text: 'Add Child', target: '.e-content', id: 'child' },
+    {
+      text: 'Add',
+      target: '.e-content',
+      id: 'add-row',
+      items: [
+        { text: 'Add Next', id: 'next' },
+        { text: 'Add Child', id: 'child' },
+      ],
+    },
     { text: 'Multi Select', target: '.e-content', id: 'multi' },
     { text: 'Copy Rows', target: '.e-content', id: 'copy' },
     { text: 'Cut Rows', target: '.e-content', id: 'cut' },
-    { text: 'Paste Next', target: '.e-content', id: 'paste-next' },
-    { text: 'Paste Child', target: '.e-content', id: 'paste-child' },
-    // { text: 'Paste', target: '.e-content', id: 'paste-row', items:[
-    //   { text: 'Paste Next', id: 'paste-next' },
-    //   { text: 'Paste Child', id: 'paste-child' },
-    // ] },
+    // { text: 'Paste Next', target: '.e-content', id: 'paste-next' },
+    // { text: 'Paste Child', target: '.e-content', id: 'paste-child' },
+    {
+      text: 'Paste',
+      target: '.e-content',
+      id: 'paste-row',
+      items: [
+        { text: 'Paste Next', id: 'paste-next' },
+        { text: 'Paste Child', id: 'paste-child' },
+      ],
+    },
     'SortAscending',
     'SortDescending',
     'Edit',
@@ -150,6 +181,10 @@ export class AppComponent implements OnInit {
 
   constructor(private TaskService: TaskStoreService) {
     // this.tasks = TaskService;
+    this.contextMenuItems = [
+      ...this.contextMenuRowItems,
+      ...this.headermenuItems,
+    ];
     this.TaskService.getTasksTableConfigurations().subscribe((data: any) => {
       this.treegridColumns = data.result.map((column: any) => {
         return {
@@ -171,9 +206,7 @@ export class AppComponent implements OnInit {
   async ngOnInit(): Promise<void> {
     this.data = new DataManager({
       url: this.TaskService.getTasksURL(),
-      // url: "https://ej2services.syncfusion.com/production/web-services/api/SelfReferenceData",
-      batchUrl: 'Home/Remove',
-      adaptor: new WebApiAdaptor({requestType: 'JSON'}),
+      adaptor: new WebApiAdaptor,
       // adaptor: new UrlAdaptor,
       crossDomain: true,
       // offline: true
@@ -187,12 +220,16 @@ export class AppComponent implements OnInit {
       showConfirmDialog: true,
       showDeleteConfirmDialog: true,
     };
-    this.filterSettings = { type: 'FilterBar', hierarchyMode: 'Parent', mode: 'Immediate' };
+    this.filterSettings = {
+      type: 'FilterBar',
+      hierarchyMode: 'Parent',
+      mode: 'Immediate',
+    };
+    this.treeGridObj.enableVirtualization = true;
     // this.sortSettings =  { columns: [{ field: 'taskID', direction: 'Ascending'  },
     //   { field: 'taskName', direction: 'Ascending' }]
     // }
-    // this.filterSettings = { type: 'Menu'};
-    // this.toolbar = ['ColumnChooser', 'Delete'];
+    // this.toolbar = ['Add', 'Delete'];
     // this.contextMenuItems = this.contextMenuRowItems;
     // this.pageSettings = { pageSize: 12, pageSizeMode: 'Root' };
     // const state: any = { skip: 0, take: 1 };
@@ -207,8 +244,6 @@ export class AppComponent implements OnInit {
           if (sortcolumns.field === columns.field) {
             // this.check(sortcolumns.field, true); break;
           } else {
-            // this.check(columns.field, false);
-            // this.treegrid.grid.removeSortColumn('units');
             // this.treegrid.sortByColumn('orderDate', 'Ascending', true);
           }
         }
@@ -218,104 +253,127 @@ export class AppComponent implements OnInit {
 
   contextMenuClick(args?: MenuEventArgs): void {
     console.log('contextMenuClick', args);
-    // this.treeGridObj.getColumnByField('taskID');
-    // debugger;
-    // if (args?.item.id === 'collapserow') {
-    //   this.treeGridObj.collapseRow(
-    //     <HTMLTableRowElement>this.treeGridObj.getSelectedRows()[0]
-    //   );
-    // } else {
-    //   this.treeGridObj.expandRow(
-    //     <HTMLTableRowElement>this.treeGridObj.getSelectedRows()[0]
-    //   );
-    // }
+    this.columnContextMenuClick(args);
+    this.rowContextMenuClick(args);
   }
 
   contextMenuOpen(arg: BeforeOpenCloseEventArgs): void {
     console.log('contextMenuOpen', arg);
+    this.rowContextMenuOpen(arg);
   }
 
-  columnMenuOpen(arg: any): void {
-    console.log('column Menu Open', arg);
-  }
-
-  columnContextMenuOpen(args: any): void {
-    console.log('columnContextMenuOpen', args);
+  columnContextMenuClick(args: any): void {
+    console.log('columnContextMenuClick', args);
     //handle selection of context menu items here
     if (args.item.properties.id === 'newColumn') {
       this.editDialog.show();
     } else if (args.item.properties.id === 'editColumn') {
       this.editDialog.show();
     } else if (args.item.properties.id === 'deleteColumn') {
-      console.log([this.selectedColumnId]);
-      this.treeGridObj.hideColumns([this.selectedColumnId], this.selectedColumnId);
-      console.log(this.treeGridObj.getVisibleColumns());
+      this.treeGridObj.hideColumns(this.selectedColumnId, 'field');
+      // delete column request to server
     } else if (args.item.properties.id === 'chooseColumn') {
       this.treeGridObj.openColumnChooser();
     } else if (args.item.properties.id === 'freezeColumn') {
-      this.treeGridObj.frozenColumns;
-      console.log(this.treeGridObj.getFrozenColumns());
+      if (!this.filterColumnSwitch) {
+        this.filterColumnSwitch = true;
+        // this.treeGridObj.rowHeight = 40;
+        this.treeGridObj.enableInfiniteScrolling = true;
+        this.treeGridObj.frozenColumns =
+          this.treeGridObj.getColumnIndexByField(this.selectedColumnId) + 1;
+      } else {
+        this.filterColumnSwitch = false;
+        this.treeGridObj.frozenColumns = 0;
+        this.treeGridObj.enableVirtualization = true;
+      }
     } else if (args.item.properties.id === 'filterColumn') {
-      // const visibleColumns = this.treeGridObj.getVisibleColumns().map(column=>{
-      //   return column.field
-      // })
-      // console.log(visibleColumns);
-      this.treeGridObj.allowFiltering = true;
+      if (this.filterColumnSwitch) {
+        this.treeGridObj.clearFiltering();
+      }
+      this.filterColumnSwitch = !this.filterColumnSwitch;
+      this.treeGridObj.allowFiltering = this.filterColumnSwitch;
     } else if (args.item.properties.id === 'multiSortColumn') {
-      this.treeGridObj.allowMultiSorting = false;
+      this.multiSelectColumnSwitch = !this.multiSelectColumnSwitch;
+      this.treeGridObj.allowMultiSorting = this.multiSelectColumnSwitch;
     }
   }
 
   rowContextMenuOpen(arg: any): void {
     console.log('rowContextMenuOpen', arg);
-    if (arg.hasOwnProperty('column') && arg.column){
+    if (arg.hasOwnProperty('column') && arg.column) {
       this.selectedColumnId = arg.column.field;
     }
   }
 
-  rowContextMenuClick(args: MenuEventArgs): void {
+  rowContextMenuClick(args: any): void {
     console.log('rowContextMenuClick', args);
     if (args.item.id === 'next') {
-      this.treeGridObj.addRecord(
-        this.treeGridObj.getSelectedRecords()[0],
-        undefined,
-        'Below'
-      );
+      const selectedRowNumber = this.treeGridObj.getSelectedRowIndexes();
+      if (selectedRowNumber.length > 1) {
+        alert('please Select single record');
+      }
+      this.treeGridObj.addRecord(undefined, selectedRowNumber[0] + 1, 'Below');
     }
-    // if (args.item.id === 'child') {
-    //   //@ts-ignore
-    //   this.treeGridObj.addRecord(this.treeGridObj.getSelectedRecords()[0], 'Child');
-    // }
+    if (args.item.id === 'child') {
+      const selectedRowNumber = this.treeGridObj.getSelectedRowIndexes();
+      if (selectedRowNumber.length > 1) {
+        alert('please Select single record');
+      }
+      this.treeGridObj.addRecord(undefined, undefined, 'Child');
+    }
     if (args.item.id === 'multi') {
       this.multiSelectToggle();
     }
     if (args.item.id === 'copy') {
       this.treeGridObj.copyHierarchyMode = 'Both';
       this.treeGridObj.copy();
+      this.highlightRecords();
     }
     if (args.item.id === 'cut') {
-      this.treeGridObj.copy();
-      this.treeGridObj.addRecord();
+      this.copiedRecords = this.treeGridObj.getSelectedRecords() as TaskModel[];
+      this.highlightRecords();
     }
     if (args.item.id === 'paste-next') {
       const selectedRowNumber = this.treeGridObj.getSelectedRowIndexes();
       console.log(selectedRowNumber);
+      // this.treeGridObj.deleteRecord('taskID', this.copiedRecords);
       // this.treeGridObj.paste('Next');
+      this.lowlightRecords();
     }
     if (args.item.id === 'paste-child') {
-      // const selectedRowNumber = this.treeGridObj.getSelectedRowIndexes();
-      // const selectedRow = this.treeGridObj.getSelectedRecords()
-      // console.log(selectedRowNumber, selectedRow);
-      //@ts-ignore
-      // this.data.insert().then(
-      //   (res: any) =>{
-      //     console.log(res.data)
-      //   }
-        this.treeGridObj.addRecord({ taskID: 'input', taskName: 'email.6', startDate: "Sun Jun 07 1992 05:00:00 GMT+0500 (Pakistan Standard Time)", isParent: true });
+      const selectedRowNumber = this.treeGridObj.getSelectedRowIndexes();
+      if (selectedRowNumber.length > 1) {
+        alert('please Select single record');
+      }
+      this.copiedRecords = this.treeGridObj.getSelectedRecords() as TaskModel[];
+      const selectedRow = (
+        this.treeGridObj.getSelectedRecords() as TaskModel[]
+      )[0];
+      console.log(selectedRowNumber, selectedRow);
 
-      // )
-      // this.treeGridObj.paste('Child');
+      // make child parent node
+      // if(!selectedRow.isParent && this.copiedRows.length > 0) {
+      //   console.log('child update');
+      //   this.treeGridObj.updateRow(selectedRowNumber[0], {isParent:true})
+      // }
+
+      for (let newRow of this.copiedRecords) {
+        newRow.isParent = false;
+        newRow.parentItem = selectedRow.taskID;
+        this.treeGridObj.addRecord(newRow);
+      }
+      this.lowlightRecords();
     }
+  }
+
+  highlightRecords() {
+    this.copiedElements = this.treeGridObj.getSelectedRows();
+    addClass(this.treeGridObj.getSelectedRows(), 'disableRow');
+  }
+
+  lowlightRecords() {
+    removeClass(this.copiedElements, 'disableRow');
+    this.copiedElements = [];
   }
 
   multiSelectToggle(): void {

@@ -4,6 +4,9 @@
     .e-row{
         height: 2em;
     }
+    .e-row.disableRow {
+      background-color: pink !important;
+    }
 }
 ._gridcontrol{
     height: 95vh!important;
